@@ -1,34 +1,51 @@
-from loguru import logger
+import logging
+import logging.config
 from datetime import datetime
+from typing import Optional
 
 INFO_LEVEL = "info"
 
-def time_encoder(record):
-    # Форматирование времени для записи
-    return datetime.fromtimestamp(record["time"].timestamp()).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
+def time_encoder(record: logging.LogRecord) -> str:
+    return datetime.fromtimestamp(record.created).strftime("%Y-%m-%d %H:%M:%S.%f")[:-3]
 
-def set_handler(level):
-    # Настройка уровня логирования и формата
-    logger.remove()  # Удаляем все предыдущие обработчики
-    if level == INFO_LEVEL:
-        logger.add(sys.stderr, format="{time} {level} {message}", level=level, serialize=False)
-    else:
-        logger.add(sys.stderr, format="{time} {level} {message}", level=level, serialize=False)
+def set_handler(level: int) -> None:
+    logging_config = {
+        'version': 1,
+        'disable_existing_loggers': False,
+        'formatters': {
+            'custom': {
+                'format': '{"time": "%(asctime)s", "level": "%(levelname)s", "message": "%(message)s"}',
+                'datefmt': None,
+                '()': CustomFormatter,
+            },
+        },
+        'handlers': {
+            'console': {
+                'class': 'logging.StreamHandler',
+                'formatter': 'custom',
+            },
+        },
+        'loggers': {
+            '': {
+                'handlers': ['console'],
+                'level': level,
+            },
+        },
+    }
+    
+    logging.config.dictConfig(logging_config)
 
-def verbosity(level: str):
-    # Установка уровня логирования
+class CustomFormatter(logging.Formatter):
+    def format(self, record: logging.LogRecord) -> str:
+        record.asctime = time_encoder(record)
+        return super().format(record)
+
+def verbosity(level: str) -> None:
     if level == "error":
-        set_handler("ERROR")
+        set_handler(logging.ERROR)
     elif level == "info":
-        set_handler("INFO")
+        set_handler(logging.INFO)
     elif level == "debug":
-        set_handler("DEBUG")
+        set_handler(logging.DEBUG)
     else:
-        set_handler("DEBUG")
-
-# Пример использования
-if __name__ == "__main__":
-    verbosity("info")  # Установка уровня логирования
-    logger.info("Это информационное сообщение")
-    logger.debug("Это отладочное сообщение")
-    logger.error("Это сообщение об ошибке")
+        set_handler(logging.DEBUG)
